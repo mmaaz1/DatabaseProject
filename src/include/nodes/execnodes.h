@@ -976,6 +976,8 @@ typedef struct PlanState
 	 */
 	TupleDesc	ps_ResultTupleDesc; /* node's return type */
 	TupleTableSlot *ps_ResultTupleSlot; /* slot for my result tuples */
+	TupleTableSlot *ps_InnerTupleSlot; /* csi3130 used in nodeHashjoin.c */
+	TupleTableSlot *ps_OuterTupleSlot; /* csi3130 used in nodeHashjoin.c */
 	ExprContext *ps_ExprContext;	/* node's expression-evaluation context */
 	ProjectionInfo *ps_ProjInfo;	/* info for doing tuple projection */
 
@@ -1928,26 +1930,44 @@ typedef struct MergeJoinState
 typedef struct HashJoinTupleData *HashJoinTuple;
 typedef struct HashJoinTableData *HashJoinTable;
 
+// CSI3130
 typedef struct HashJoinState
 {
-	JoinState	js;				/* its first field is NodeTag */
-	ExprState  *hashclauses;
-	List	   *hj_OuterHashKeys;	/* list of ExprState nodes */
-	List	   *hj_HashOperators;	/* list of operator OIDs */
+    JoinState	js;				/* its first field is NodeTag */
+    List	   *hashclauses;	/* list of ExprState nodes */
 	List	   *hj_Collations;
-	HashJoinTable hj_HashTable;
-	uint32		hj_CurHashValue;
-	int			hj_CurBucketNo;
-	int			hj_CurSkewBucketNo;
-	HashJoinTuple hj_CurTuple;
-	TupleTableSlot *hj_OuterTupleSlot;
-	TupleTableSlot *hj_HashTupleSlot;
-	TupleTableSlot *hj_NullOuterTupleSlot;
-	TupleTableSlot *hj_NullInnerTupleSlot;
-	TupleTableSlot *hj_FirstOuterTupleSlot;
+	HashJoinTable hj_OutHashTable;
+    HashJoinTable hj_InHashTable;
+    uint32		hj_OutCurHashValue;
+    uint32      hj_InCurHashValue;
+    int			hj_OutCurBucketNo;
+    int         hj_InCurBucketNo;
+	int			hj_OutCurSkewBucketNo;
+	int			hj_InCurSkewBucketNo;
+    HashJoinTuple hj_OutCurTuple;
+    HashJoinTable hj_InCurTuple;
+    List	   *hj_OuterHashKeys;		/* list of ExprState nodes */
+    List	   *hj_InnerHashKeys;		/* list of ExprState nodes */
+    List	   *hj_HashOperators;		/* list of operator OIDs */
+    TupleTableSlot *hj_OuterTupleSlot;
+    TupleTableSlot *hj_InTupleSlot;
+    TupleTableSlot *hj_OutHashTupleSlot;
+    TupleTableSlot *hj_InHashTupleSlot;
+    TupleTableSlot *hj_NullOuterTupleSlot;
+    TupleTableSlot *hj_NullInnerTupleSlot;
+    TupleTableSlot *hj_FirstOuterTupleSlot;
+    TupleTableSlot *hj_FirstInTupleSlot;
 	int			hj_JoinState;
-	bool		hj_MatchedOuter;
-	bool		hj_OuterNotEmpty;
+    bool        hj_inExauhsted; //inner tuple is exhausted
+    bool        hj_outExauhsted; //outer tuple is exhausted
+    bool		hj_NeedNewOuter; // need outer tuple
+    bool		hj_NeedNewIn; //need inner tuple
+    bool		hj_MatchedOuter;
+    bool		hj_OuterNotEmpty; // outer relation is not empty
+    bool		hj_InNotEmpty; // inner relation is not empty
+    int         hj_InProbing;
+    int         hj_OutProbing;
+    bool        hj_InFetched;
 } HashJoinState;
 
 

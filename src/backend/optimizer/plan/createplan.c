@@ -4377,7 +4377,10 @@ create_hashjoin_plan(PlannerInfo *root,
 					 HashPath *best_path)
 {
 	HashJoin   *join_plan;
+	// CSI3130
 	Hash	   *hash_plan;
+	Hash	   *outer_hash_plan;
+	Hash	   *inner_hash_plan;
 	Plan	   *outer_plan;
 	Plan	   *inner_plan;
 	List	   *tlist = build_path_tlist(root, &best_path->jpath.path);
@@ -4501,10 +4504,17 @@ create_hashjoin_plan(PlannerInfo *root,
 		inner_hashkeys = lappend(inner_hashkeys, lsecond(hclause->args));
 	}
 
+	// CSI3130
+	outer_hash_plan = make_hash(outer_plan,
+						  outer_hashkeys,
+						  skewTable,
+						  skewColumn,
+						  skewInherit);
+
 	/*
 	 * Build the hash node and hash join node.
 	 */
-	hash_plan = make_hash(inner_plan,
+	inner_hash_plan = make_hash(inner_plan,
 						  inner_hashkeys,
 						  skewTable,
 						  skewColumn,
@@ -4514,8 +4524,8 @@ create_hashjoin_plan(PlannerInfo *root,
 	 * Set Hash node's startup & total costs equal to total cost of input
 	 * plan; this only affects EXPLAIN display not decisions.
 	 */
-	copy_plan_costsize(&hash_plan->plan, inner_plan);
-	hash_plan->plan.startup_cost = hash_plan->plan.total_cost;
+	copy_plan_costsize(&inner_hash_plan->plan, inner_plan);
+	inner_hash_plan->plan.startup_cost = inner_hash_plan->plan.total_cost;
 
 	/*
 	 * If parallel-aware, the executor will also need an estimate of the total
@@ -4524,8 +4534,8 @@ create_hashjoin_plan(PlannerInfo *root,
 	 */
 	if (best_path->jpath.path.parallel_aware)
 	{
-		hash_plan->plan.parallel_aware = true;
-		hash_plan->rows_total = best_path->inner_rows_total;
+		inner_hash_plan->plan.parallel_aware = true;
+		inner_hash_plan->rows_total = best_path->inner_rows_total;
 	}
 
 	join_plan = make_hashjoin(tlist,
@@ -4535,8 +4545,9 @@ create_hashjoin_plan(PlannerInfo *root,
 							  hashoperators,
 							  hashcollations,
 							  outer_hashkeys,
-							  outer_plan,
-							  (Plan *) hash_plan,
+						      // CSI3130
+							  (Plan *) outer_hash_plan,
+							  (Plan *) inner_hash_plan,
 							  best_path->jpath.jointype,
 							  best_path->jpath.inner_unique);
 
